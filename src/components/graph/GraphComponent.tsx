@@ -1,14 +1,15 @@
 import { SigmaContainer, useLoadGraph, useRegisterEvents, useSigma } from "@react-sigma/core";
-import { getGraph } from "./Graph";
+import Graph from "graphology";
 import { useWorkerLayoutForceAtlas2 } from '@react-sigma/layout-forceatlas2';
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import "@react-sigma/core/lib/style.css"
-import { useAppendLayoutVersion, useIsLayoutRunning, useIsNeedToBeReload, useLayoutVersion, useResetCamera, useSetIsLayoutRunning, useSetIsNeedToBeReload, useSetOpenedNode, useSetSigma } from "../store/SigmaStore";
+import { useAppendLayoutVersion, useIsLayoutRunning, useIsNeedToBeReload, useLayoutVersion, useSetIsLayoutRunning, useSetIsNeedToBeReload, useSetOpenedNode, useSetSigma } from "../../store/ClientStore";
 import NodeContextMenu from "./NodeContextMenu";
+import { useSettingsOfLayout, useTimeOfWorking } from "../../store/LayoutSettingsStore";
 
 function LoadGraph() {
-    const graph = getGraph();
+    const graph = new Graph();
     const loadGraph = useLoadGraph();
 
     useEffect(() => {
@@ -34,18 +35,19 @@ function InitialLayout() {
     const sigma = useSigma();
     const layoutVersion = useLayoutVersion();
     const needToBeReload = useIsNeedToBeReload();
+    const layoutSettings = useSettingsOfLayout();
+    const timeOfWorking = useTimeOfWorking();
+
     const setIsLayoutRunning = useSetIsLayoutRunning();
     const setIsNeedToBeReload = useSetIsNeedToBeReload();
+
     const appendLayoutVersion = useAppendLayoutVersion();
     // const resetCamera = useResetCamera();
+
     const { start, stop } = useWorkerLayoutForceAtlas2({
-        settings: { 
-            slowDown: 10,
-            scalingRatio: 100,
-            gravity: 25,
-            strongGravityMode: false,
-        },
+        settings: layoutSettings,
     });
+
     const graph = sigma.getGraph();
 
     if (needToBeReload) {
@@ -57,21 +59,19 @@ function InitialLayout() {
     }
 
     useEffect(() => {
-        const graph = sigma.getGraph();
-
         start();
         setIsLayoutRunning(true);
 
         const timeoutId = setTimeout(() => {
             stop();
-            setIsLayoutRunning(false);
 
             graph.forEachNode((node) => {
                 graph.setNodeAttribute(node, "fixed", true);
             });
 
             sigma.refresh();
-        }, 100);
+            setIsLayoutRunning(false);
+        }, timeOfWorking);
 
         return () => {            
             clearTimeout(timeoutId);
@@ -200,10 +200,10 @@ export default function GraphComponent() {
         style={{
             height: "100vh", 
             width: "100%", 
-            backgroundColor: "#f0f0e5"
+            backgroundColor: "#f0f0e5",
         }}
         settings={{
-            autoRescale: false,
+            autoRescale: true,
             itemSizesReference: "screen",
             minCameraRatio: 0.05,
             maxCameraRatio: 10,

@@ -1,73 +1,128 @@
-# React + TypeScript + Vite
+# Graph Project V-2.0.0.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Прототип frontend-интерфейса для визуализации и исследования графовых данных в браузере.
 
-Currently, two official plugins are available:
+Проект представляет собой тестовый стенд для отработки пользовательских и технических сценариев работы с графом:
+- загрузка стартового узла
+- работа с mock-данными
+- визуализация узлов и связей
+- сброс текущего представления
+- ручной перезапуск layout
+- подготовка архитектуры под подключение реального API
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Текущее состояние
 
-## React Compiler
+Сейчас это frontend-прототип, а не законченный продукт. Основной акцент сделан на:
+- отрисовку графа
+- базовое управление сценой
+- тестирование layout-логики
+- работу с mock API
+- подготовку к дальнейшему расширению функциональности
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+По интерфейсу уже реализованы базовые управляющие элементы, включая:
+- включение mock-режима
+- получение seed node
+- reset представления
+- reload layout
+- выбор числового параметра для перезапуска layout
 
-## Expanding the ESLint configuration
+## Стек проекта
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Основной стек
+- React 19
+- TypeScript
+- Vite
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Работа с графом
+- Sigma.js
+- @react-sigma/core
+- @react-sigma/layout-forceatlas2
+- Graphology
+- graphology-layout
+- graphology-layout-forceatlas2
+- graphology-library
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Работа с данными и состоянием
+- Zustand
+- TanStack React Query
+- Axios
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Инструменты разработки
+- ESLint
+- MSW
+- Docker / Docker Compose
+
+## Возможности текущей версии
+
+На текущем этапе проект позволяет:
+- запускать приложение в режиме разработки
+- работать с mock API через MSW
+- отображать граф на сцене
+- загружать стартовый узел
+- вручную сбрасывать состояние представления
+- перезапускать layout для перерасчета расположения узлов
+- тестировать поведение графа перед подключением реального backend
+
+## Запуск проекта локально
+
+### 1. Установка зависимостей
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Запуск dev-сервера
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm run dev
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 3. Адрес приложения
+
+По умолчанию приложение будет доступно по адресу:
+
+```text
+http://localhost:5173
+```
+
+или
+
+```text
+http://127.0.0.1:5173
+```
+
+## Сборка проекта
+
+Сборка production-версии:
+
+```bash
+npm run build
+```
+
+Локальный просмотр production-сборки:
+
+```bash
+npm run preview
+```
+
+## Запуск через Docker Compose
+
+В проекте предусмотрен запуск через Docker Compose.
+
+Команда запуска:
+
+```bash
+docker compose up
+```
+
+После запуска приложение будет доступно по адресу:
+
+```text
+http://localhost:5173
+```
+
+или
+
+```text
+http://127.0.0.1:5173
 ```
