@@ -1,4 +1,17 @@
-import type { ExpandFilters, ExpandRequest, GraphResponse, MockEdge, MockNode, SearchRequest } from './types'
+import type {
+    AttributeFilterValue,
+    BackendGraphEdge,
+    BackendGraphNode,
+    ExpandFilters,
+    ExpandRequest,
+    GraphExpandPreviewResponse,
+    GraphNodeSummaryResponse,
+    GraphResponse,
+    GraphNodeSearchResponse,
+    MockEdge,
+    MockNode,
+    Direction,
+} from './types'
 
 type World = {
     nodesById: Map<string, MockNode>
@@ -7,17 +20,17 @@ type World = {
     rootNodeIds: string[]
 }
 
-type DeliveredSubgraph = {
-    nodeIds: Set<string>
-    edgeIds: Set<string>
-}
-
 type ExpansionSelection = {
     neighborNodeIds: string[]
     frontierEdgeIds: string[]
 }
 
-const ENTITY_TYPES = ['PARTY', 'ACCOUNT', 'CARD', 'DEVICE', 'PHONE', 'COMPANY'] as const
+type ExpansionCandidate = {
+    neighborNodeId: string
+    frontierEdgeId: string
+}
+
+const ENTITY_TYPES = ['PERSON', 'COMPANY', 'ACCOUNT', 'LOAN', 'MEDIUM'] as const
 type EntityType = (typeof ENTITY_TYPES)[number]
 
 const world = buildWorld({
@@ -26,113 +39,121 @@ const world = buildWorld({
     rootCount: Number(import.meta.env.VITE_MOCK_GRAPH_ROOTS ?? 100),
 })
 
-const deliveredSubgraph = createDeliveredSubgraph()
+export function searchNodes(
+    query: string,
+    nodeType?: string | null,
+    limit = 20,
+    includeAttributes = true,
+): GraphNodeSearchResponse {
+    const normalizedQuery = query.trim().toLowerCase()
+    const normalizedNodeType = nodeType?.trim().toUpperCase() || null
+    const effectiveLimit = Math.min(Math.max(limit, 1), 100)
 
-export function getRoots(limit = 20) {
-    return world.rootNodeIds.slice(0, limit).map((id) => world.nodesById.get(id)!).filter(Boolean)
-}
-
-export function searchById(req: SearchRequest): GraphResponse {
-    const seedNodeId = req.nodeId
-
-    if (!seedNodeId || !world.nodesById.has(seedNodeId)) {
+    if (!normalizedQuery) {
         return {
             nodes: [],
-            edges: [],
             meta: {
-                source: 'MSW',
-                hop: 1,
-                seedNodeId,
-                warnings: ['Seed node not found'],
+                query: '',
+                nodeType: normalizedNodeType,
+                limit: effectiveLimit,
+                returnedNodeCount: 0,
+                truncated: false,
             },
         }
     }
 
-    const selection = selectExpansion(seedNodeId, {}, req.maxNeighbors ?? 20, {
-        excludeDeliveredNodes: true,
-    })
+    const matches = [...world.nodesById.values()]
+        .filter((node) => !normalizedNodeType || node.entityType === normalizedNodeType)
+        .map((node) => ({
+            node,
+            rank: getNodeSearchRank(node, normalizedQuery),
+        }))
+        .filter((item) => item.rank !== null)
+        .sort((left, right) =>
+            left.rank! - right.rank!
+            || left.node.displayName.localeCompare(right.node.displayName)
+            || left.node.nodeId.localeCompare(right.node.nodeId),
+        )
 
-    const responseNodeIds = buildIncrementalResponseNodeIds(seedNodeId, selection.neighborNodeIds)
-    const responseEdgeIds = collectIncrementalEdgeIds(responseNodeIds, {})
-
-    markNodesAsDelivered(responseNodeIds)
-    markEdgesAsDelivered(responseEdgeIds)
+    const nodes = matches.slice(0, effectiveLimit).map((item) => toBackendNode(item.node, includeAttributes))
 
     return {
-        nodes: mapNodeIdsToNodes(responseNodeIds),
-        edges: mapEdgeIdsToEdges(responseEdgeIds),
+        nodes,
         meta: {
-            source: 'MSW',
-            hop: 1,
-            seedNodeId,
-            candidateEdgeCount: responseEdgeIds.length,
-            deliveredNodeCount: deliveredSubgraph.nodeIds.size,
-            deliveredEdgeCount: deliveredSubgraph.edgeIds.size,
-            warnings: [],
+            query: query.trim(),
+            nodeType: normalizedNodeType,
+            limit: effectiveLimit,
+            returnedNodeCount: nodes.length,
+            truncated: matches.length > effectiveLimit,
         },
     }
 }
 
-export function getExpandPreview(req: ExpandRequest) {
-    const seedNodeId = req.nodeIds[0]
+export function getNodeSummary(
+    nodeId: string,
+    relationFamily: string | null = null,
+    direction: Direction = 'BOTH',
+): GraphNodeSummaryResponse | null {
+    const node = world.nodesById.get(nodeId)
+    if (!node) return null
 
-    if (!seedNodeId || !world.nodesById.has(seedNodeId)) {
-        return {
-            seedNodeId,
-            totalNeighbors: 0,
-            availableFilters: {
-                entityTypes: [],
-                relationFamilies: [],
-            },
-            meta: {
-                source: 'MSW',
-                candidateEdgeCount: 0,
-                warnings: ['Seed node not found'],
-            },
+    const resolvedRelationFamily = relationFamily?.trim() || 'ALL_RELATIONS'
+    const matchingEdges = (world.edgeIdsByNodeId.get(nodeId) ?? [])
+        .map((edgeId) => world.edgesById.get(edgeId))
+        .filter((edge): edge is MockEdge => Boolean(edge))
+        .filter((edge) => resolvedRelationFamily === 'ALL_RELATIONS' || edge.relationFamily === resolvedRelationFamily)
+        .filter((edge) => matchesDirection(edge, nodeId, direction))
+
+    const neighborNodeIds = new Set<string>()
+    const relationFamilies = new Map<string, number>()
+    const edgeTypes = new Map<string, number>()
+    const neighborNodeTypes = new Map<string, number>()
+    let outboundEdgeCount = 0
+    let inboundEdgeCount = 0
+
+    for (const edge of matchingEdges) {
+        const neighborNodeId = edge.source === nodeId ? edge.target : edge.source
+        const neighborNode = world.nodesById.get(neighborNodeId)
+
+        neighborNodeIds.add(neighborNodeId)
+        incrementFacet(relationFamilies, edge.relationFamily)
+        incrementFacet(edgeTypes, edge.edgeType)
+
+        if (neighborNode) {
+            incrementFacet(neighborNodeTypes, neighborNode.entityType)
         }
-    }
 
-    const selection = selectExpansion(seedNodeId, req.filters, req.maxNeighborsPerSeed ?? 50, {
-        excludeDeliveredNodes: true,
-    })
-
-    const responseNodeIds = buildIncrementalResponseNodeIds(seedNodeId, selection.neighborNodeIds)
-    const candidateEdgeIds = collectIncrementalEdgeIds(responseNodeIds, req.filters)
-
-    const byEntityType = new Map<string, number>()
-    const byRelationFamily = new Map<string, number>()
-
-    for (const nodeId of selection.neighborNodeIds) {
-        const node = world.nodesById.get(nodeId)
-        if (!node) continue
-        byEntityType.set(node.entityType, (byEntityType.get(node.entityType) ?? 0) + 1)
-    }
-
-    for (const edgeId of selection.frontierEdgeIds) {
-        const edge = world.edgesById.get(edgeId)
-        if (!edge) continue
-        byRelationFamily.set(edge.relationFamily, (byRelationFamily.get(edge.relationFamily) ?? 0) + 1)
+        if (edge.source === nodeId) outboundEdgeCount += 1
+        if (edge.target === nodeId) inboundEdgeCount += 1
     }
 
     return {
-        seedNodeId,
-        totalNeighbors: selection.neighborNodeIds.length,
-        availableFilters: {
-            entityTypes: [...byEntityType.entries()].map(([value, count]) => ({ value, count })),
-            relationFamilies: [...byRelationFamily.entries()].map(([value, count]) => ({ value, count })),
+        node: toBackendNode(node, true),
+        summary: {
+            requestedDirection: direction,
+            relationFamily: resolvedRelationFamily,
+            adjacentEdgeCount: matchingEdges.length,
+            uniqueNeighborCount: neighborNodeIds.size,
+            outboundEdgeCount,
+            inboundEdgeCount,
         },
-        meta: {
-            source: 'MSW',
-            candidateEdgeCount: candidateEdgeIds.length,
-            deliveredNodeCount: deliveredSubgraph.nodeIds.size,
-            deliveredEdgeCount: deliveredSubgraph.edgeIds.size,
-            warnings: [],
+        relationFamilies: mapToFacetCounts(relationFamilies),
+        edgeTypes: mapToFacetCounts(edgeTypes),
+        neighborNodeTypes: mapToFacetCounts(neighborNodeTypes),
+        expandPreview: {
+            defaultMaxNeighborsPerSeed: 50,
+            defaultMaxNodes: 300,
+            defaultMaxEdges: 500,
+            wouldTruncateByNeighborBudget: matchingEdges.length > 50,
         },
     }
 }
 
 export function expandFromNode(req: ExpandRequest): GraphResponse {
-    const seedNodeId = req.nodeIds[0]
+    const seedNodeId = resolveSeedNodeId(req.seeds?.[0])
+    const filters = requestToFilters(req)
+    const direction = req.direction ?? 'BOTH'
+    const includeAttributes = req.includeAttributes ?? true
 
     if (!seedNodeId || !world.nodesById.has(seedNodeId)) {
         return {
@@ -146,26 +167,50 @@ export function expandFromNode(req: ExpandRequest): GraphResponse {
         }
     }
 
-    const selection = selectExpansion(seedNodeId, req.filters, req.maxNeighborsPerSeed ?? 50, {
-        excludeDeliveredNodes: true,
-    })
+    const maxNodes = req.maxNodes ?? 300
+    const maxEdges = req.maxEdges ?? 500
+    const maxNeighbors = Math.max(0, Math.min(req.maxNeighborsPerSeed ?? 50, maxNodes))
 
-    const responseNodeIds = buildIncrementalResponseNodeIds(seedNodeId, selection.neighborNodeIds)
-    const responseEdgeIds = collectIncrementalEdgeIds(responseNodeIds, req.filters)
+    const selection = selectExpansion(seedNodeId, filters, direction, maxNeighbors)
 
-    markNodesAsDelivered(responseNodeIds)
-    markEdgesAsDelivered(responseEdgeIds)
+    const responseNodeIds = uniqueIds([seedNodeId, ...selection.neighborNodeIds]).slice(0, maxNodes)
+    const responseNodeIdSet = new Set(responseNodeIds)
+    const responseEdgeIds = selection.frontierEdgeIds
+        .filter((edgeId) => {
+            const edge = world.edgesById.get(edgeId)
+            if (!edge) return false
+
+            const hasSource = responseNodeIdSet.has(edge.source)
+            const hasTarget = responseNodeIdSet.has(edge.target)
+
+            return hasSource && hasTarget
+        })
+        .slice(0, maxEdges)
 
     return {
-        nodes: mapNodeIdsToNodes(responseNodeIds),
-        edges: mapEdgeIdsToEdges(responseEdgeIds),
+        nodes: mapNodeIdsToBackendNodes(responseNodeIds, includeAttributes),
+        edges: mapEdgeIdsToBackendEdges(responseEdgeIds, includeAttributes),
         meta: {
             source: 'MSW',
             rankingStrategy: 'MOCK_DETERMINISTIC',
             candidateEdgeCount: responseEdgeIds.length,
-            deliveredNodeCount: deliveredSubgraph.nodeIds.size,
-            deliveredEdgeCount: deliveredSubgraph.edgeIds.size,
             warnings: [],
+        },
+    }
+}
+
+export function getFullGraph(includeAttributes = true): GraphResponse {
+    const nodeIds = [...world.nodesById.keys()]
+    const edgeIds = [...world.edgesById.keys()]
+
+    return {
+        nodes: mapNodeIdsToBackendNodes(nodeIds, includeAttributes),
+        edges: mapEdgeIdsToBackendEdges(edgeIds, includeAttributes),
+        meta: {
+            source: 'MSW',
+            returnedNodeCount: nodeIds.length,
+            returnedEdgeCount: edgeIds.length,
+            truncated: false,
         },
     }
 }
@@ -173,125 +218,124 @@ export function expandFromNode(req: ExpandRequest): GraphResponse {
 function selectExpansion(
     seedNodeId: string,
     filters: ExpandFilters = {},
+    direction: Direction,
     limit = 50,
-    options: { excludeDeliveredNodes: boolean },
 ): ExpansionSelection {
+    const candidates = collectExpansionCandidates(seedNodeId, filters, direction).slice(0, limit)
+
+    return {
+        neighborNodeIds: candidates.map((candidate) => candidate.neighborNodeId),
+        frontierEdgeIds: candidates.map((candidate) => candidate.frontierEdgeId),
+    }
+}
+
+export function previewExpandFromNode(req: ExpandRequest): GraphExpandPreviewResponse {
+    const seedNodeId = resolveSeedNodeId(req.seeds?.[0])
+    const filters = requestToFilters(req)
+    const direction = req.direction ?? 'BOTH'
+    const maxNeighborsPerSeed = req.maxNeighborsPerSeed ?? 1000
+    const maxNodes = req.maxNodes ?? 1000
+    const maxEdges = req.maxEdges ?? 2000
+
+    if (!seedNodeId || !world.nodesById.has(seedNodeId)) {
+        return {
+            summary: {
+                adjacentEdgeCount: 0,
+                uniqueNeighborCount: 0,
+                newNodeCount: 0,
+                newEdgeCount: 0,
+            },
+            facets: {
+                relationFamilies: [],
+                edgeTypes: [],
+                neighborNodeTypes: [],
+                nodeAttributes: {},
+                edgeAttributes: {},
+            },
+            expandPreview: {
+                defaultMaxNeighborsPerSeed: maxNeighborsPerSeed,
+                defaultMaxNodes: maxNodes,
+                defaultMaxEdges: maxEdges,
+                wouldTruncateByNeighborBudget: false,
+            },
+        }
+    }
+
+    const candidates = collectExpansionCandidates(seedNodeId, filters, direction)
+    const uniqueNeighborNodeIds = uniqueIds(candidates.map((candidate) => candidate.neighborNodeId))
+    const excludedNodeIds = new Set(req.exclude?.nodeIds ?? [])
+    const excludedEdgeIds = new Set(req.exclude?.edgeIds ?? [])
+    const newNodeIds = uniqueNeighborNodeIds.filter((nodeId) => !excludedNodeIds.has(nodeId))
+    const newEdgeIds = uniqueIds(candidates.map((candidate) => candidate.frontierEdgeId))
+        .filter((edgeId) => !excludedEdgeIds.has(edgeId))
+
+    return {
+        summary: {
+            adjacentEdgeCount: candidates.length,
+            uniqueNeighborCount: uniqueNeighborNodeIds.length,
+            newNodeCount: newNodeIds.length,
+            newEdgeCount: newEdgeIds.length,
+        },
+        facets: {
+            relationFamilies: toCandidateFacetCounts(candidates, (candidate) => world.edgesById.get(candidate.frontierEdgeId)?.relationFamily),
+            edgeTypes: toCandidateFacetCounts(candidates, (candidate) => world.edgesById.get(candidate.frontierEdgeId)?.edgeType),
+            neighborNodeTypes: toCandidateFacetCounts(candidates, (candidate) => world.nodesById.get(candidate.neighborNodeId)?.entityType),
+            nodeAttributes: {},
+            edgeAttributes: {},
+        },
+        expandPreview: {
+            defaultMaxNeighborsPerSeed: maxNeighborsPerSeed,
+            defaultMaxNodes: maxNodes,
+            defaultMaxEdges: maxEdges,
+            wouldTruncateByNeighborBudget: uniqueNeighborNodeIds.length > maxNeighborsPerSeed,
+        },
+    }
+}
+
+function collectExpansionCandidates(
+    seedNodeId: string,
+    filters: ExpandFilters = {},
+    direction: Direction,
+): ExpansionCandidate[] {
     const edgeIds = world.edgeIdsByNodeId.get(seedNodeId) ?? []
     const seenNodeIds = new Set<string>()
-    const neighborNodeIds: string[] = []
-    const frontierEdgeIds: string[] = []
+    const candidates: ExpansionCandidate[] = []
 
     for (const edgeId of edgeIds) {
         const edge = world.edgesById.get(edgeId)
         if (!edge) continue
 
-        if (!passesRelationFamilyFilter(edge, filters)) {
+        if (!matchesDirection(edge, seedNodeId, direction)) {
             continue
         }
 
         const otherNodeId = edge.source === seedNodeId ? edge.target : edge.source
 
-        if (filters.excludeNodeIds?.includes(otherNodeId)) {
-            continue
-        }
-
-        if (options.excludeDeliveredNodes && deliveredSubgraph.nodeIds.has(otherNodeId)) {
+        if (filters.exclude?.nodeIds?.includes(otherNodeId)) {
             continue
         }
 
         const otherNode = world.nodesById.get(otherNodeId)
         if (!otherNode) continue
 
-        if (filters.entityTypes?.length && !filters.entityTypes.includes(otherNode.entityType)) {
-            continue
-        }
-
         if (seenNodeIds.has(otherNodeId)) {
             continue
         }
 
+        const candidate = {
+            neighborNodeId: otherNodeId,
+            frontierEdgeId: edgeId,
+        }
+
+        if (!passesCandidateFilters(candidate, filters)) {
+            continue
+        }
+
         seenNodeIds.add(otherNodeId)
-        neighborNodeIds.push(otherNodeId)
-        frontierEdgeIds.push(edgeId)
-
-        if (neighborNodeIds.length >= limit) {
-            break
-        }
+        candidates.push(candidate)
     }
 
-    return {
-        neighborNodeIds,
-        frontierEdgeIds,
-    }
-}
-
-function buildIncrementalResponseNodeIds(seedNodeId: string, newNeighborNodeIds: string[]) {
-    const responseNodeIds: string[] = []
-
-    if (!deliveredSubgraph.nodeIds.has(seedNodeId)) {
-        responseNodeIds.push(seedNodeId)
-    }
-
-    for (const nodeId of newNeighborNodeIds) {
-        if (!deliveredSubgraph.nodeIds.has(nodeId)) {
-            responseNodeIds.push(nodeId)
-        }
-    }
-
-    return uniqueIds(responseNodeIds)
-}
-
-function collectEdgeIdsWithinNodeSet(nodeIds: Set<string>) {
-    const result = new Set<string>()
-
-    for (const nodeId of nodeIds) {
-        const edgeIds = world.edgeIdsByNodeId.get(nodeId) ?? []
-
-        for (const edgeId of edgeIds) {
-            const edge = world.edgesById.get(edgeId)
-            if (!edge) continue
-
-            if (nodeIds.has(edge.source) && nodeIds.has(edge.target)) {
-                result.add(edgeId)
-            }
-        }
-    }
-
-    return [...result].sort()
-}
-
-function collectIncrementalEdgeIds(responseNodeIds: string[], filters: ExpandFilters = {}) {
-    const responseNodeIdSet = new Set(responseNodeIds)
-    const knownNodeIds = new Set(deliveredSubgraph.nodeIds)
-
-    for (const nodeId of responseNodeIds) {
-        knownNodeIds.add(nodeId)
-    }
-
-    const result = new Set<string>()
-
-    for (const nodeId of responseNodeIdSet) {
-        const edgeIds = world.edgeIdsByNodeId.get(nodeId) ?? []
-
-        for (const edgeId of edgeIds) {
-            if (deliveredSubgraph.edgeIds.has(edgeId)) {
-                continue
-            }
-
-            const edge = world.edgesById.get(edgeId)
-            if (!edge) continue
-
-            if (!passesRelationFamilyFilter(edge, filters)) {
-                continue
-            }
-
-            if (knownNodeIds.has(edge.source) && knownNodeIds.has(edge.target)) {
-                result.add(edgeId)
-            }
-        }
-    }
-
-    return [...result].sort()
+    return candidates
 }
 
 function passesRelationFamilyFilter(edge: MockEdge, filters: ExpandFilters = {}) {
@@ -302,35 +346,230 @@ function passesRelationFamilyFilter(edge: MockEdge, filters: ExpandFilters = {})
     return filters.relationFamilies.includes(edge.relationFamily)
 }
 
-function markNodesAsDelivered(nodeIds: string[]) {
-    for (const nodeId of nodeIds) {
-        deliveredSubgraph.nodeIds.add(nodeId)
+function passesEdgeTypeFilter(edge: MockEdge, filters: ExpandFilters = {}) {
+    if (!filters.edgeTypes?.length) {
+        return true
+    }
+
+    return filters.edgeTypes.includes(edge.edgeType)
+}
+
+function passesCandidateFilters(candidate: ExpansionCandidate, filters: ExpandFilters = {}) {
+    const node = world.nodesById.get(candidate.neighborNodeId)
+    const edge = world.edgesById.get(candidate.frontierEdgeId)
+
+    if (!node || !edge) return false
+
+    if (!passesRelationFamilyFilter(edge, filters)) {
+        return false
+    }
+
+    if (!passesEdgeTypeFilter(edge, filters)) {
+        return false
+    }
+
+    if (filters.nodeTypes?.length && !filters.nodeTypes.includes(node.entityType)) {
+        return false
+    }
+
+    if (!passesAttributeFilters(node.attributes, filters.nodeAttributes)) {
+        return false
+    }
+
+    return passesAttributeFilters(edge.attributes, filters.edgeAttributes)
+}
+
+function passesAttributeFilters(attrs: Record<string, unknown>, filters?: Record<string, AttributeFilterValue>) {
+    if (!filters) return true
+
+    for (const [key, filter] of Object.entries(filters)) {
+        if (!matchesAttributeFilter(attrs[key], filter)) {
+            return false
+        }
+    }
+
+    return true
+}
+
+function matchesAttributeFilter(value: unknown, filter: AttributeFilterValue) {
+    if (filter.eq !== undefined && value !== filter.eq) {
+        return false
+    }
+    if (filter.in?.length && !filter.in.includes(value as string | number | boolean | null)) {
+        return false
+    }
+    if (filter.gte !== undefined || filter.lte !== undefined) {
+        if (typeof value !== 'number') return false
+        if (typeof filter.gte === 'number' && value < filter.gte) return false
+        if (typeof filter.lte === 'number' && value > filter.lte) return false
+    }
+    return true
+}
+
+function incrementFacet(map: Map<string, number>, value: string) {
+    map.set(value, (map.get(value) ?? 0) + 1)
+}
+
+function mapToFacetCounts(map: Map<string, number>) {
+    return [...map.entries()]
+        .map(([key, count]) => ({ key, count }))
+        .sort((left, right) => right.count - left.count || left.key.localeCompare(right.key))
+}
+
+function matchesDirection(edge: MockEdge, nodeId: string, direction: Direction) {
+    if (direction === 'BOTH') return true
+    if (direction === 'OUTBOUND') return edge.source === nodeId || edge.direction === 'UNDIRECTED'
+    return edge.target === nodeId || edge.direction === 'UNDIRECTED'
+}
+
+function resolveSeedNodeId(seed?: { type: string; value: string }) {
+    if (!seed) return ''
+
+    const normalizedType = seed.type.trim().toUpperCase()
+    const value = seed.value.trim()
+
+    if (normalizedType === 'NODE_ID') {
+        return value
+    }
+
+    const match = [...world.nodesById.values()].find((node) => {
+        if (node.nodeId === value) return true
+
+        return Object.entries(buildIdentifiers(node)).some(([key, identifierValue]) => (
+            key.toUpperCase() === normalizedType && identifierValue === value
+        ))
+    })
+
+    return match?.nodeId ?? value
+}
+
+function requestToFilters(req: ExpandRequest): ExpandFilters {
+    const relationFamily = req.relationFamily?.trim()
+    const edgeTypes = req.edgeTypes?.filter(Boolean)
+
+    return {
+        ...req.filters,
+        exclude: req.exclude,
+        relationFamilies: req.filters?.relationFamilies?.length
+            ? req.filters.relationFamilies
+            : relationFamily && relationFamily !== 'ALL_RELATIONS'
+            ? [relationFamily]
+            : undefined,
+        edgeTypes: req.filters?.edgeTypes?.length ? req.filters.edgeTypes : edgeTypes?.length ? edgeTypes : undefined,
     }
 }
 
-function markEdgesAsDelivered(edgeIds: string[]) {
-    for (const edgeId of edgeIds) {
-        deliveredSubgraph.edgeIds.add(edgeId)
-    }
+function toCandidateFacetCounts(candidates: ExpansionCandidate[], classifier: (candidate: ExpansionCandidate) => string | undefined) {
+    const map = new Map<string, number>()
+    candidates.forEach((candidate) => {
+        const value = classifier(candidate)
+        if (!value) return
+        incrementFacet(map, value)
+    })
+    return mapToFacetCounts(map)
 }
 
 function mapNodeIdsToNodes(nodeIds: string[]) {
     return nodeIds.map((nodeId) => world.nodesById.get(nodeId)).filter(Boolean) as MockNode[]
 }
 
+function mapNodeIdsToBackendNodes(nodeIds: string[], includeAttributes: boolean) {
+    return mapNodeIdsToNodes(nodeIds).map((node) => toBackendNode(node, includeAttributes))
+}
+
+function toBackendNode(node: MockNode, includeAttributes: boolean): BackendGraphNode {
+    return {
+        nodeId: node.nodeId,
+        nodeType: node.entityType,
+        displayName: node.displayName,
+        identifiers: buildIdentifiers(node),
+        statuses: buildStatuses(node),
+        attributes: includeAttributes ? node.attributes : {},
+    }
+}
+
+function buildIdentifiers(node: MockNode) {
+    const identifiers: Record<string, string> = {
+        node_id: node.nodeId,
+    }
+
+    for (const [key, value] of Object.entries(node.attributes)) {
+        if (key.endsWith('_rk') || key.endsWith('_id') || ['account_no', 'loan_id', 'medium_id'].includes(key)) {
+            identifiers[key] = String(value)
+        }
+    }
+
+    return identifiers
+}
+
+function buildStatuses(node: MockNode) {
+    const statuses: string[] = []
+    const riskLevel = node.attributes.riskLevel
+
+    if (node.attributes.isBlocked === true) {
+        statuses.push('BLACKLIST')
+    }
+
+    if (node.attributes.isVip === true || node.attributes.accountLevel === 'VIP') {
+        statuses.push('VIP')
+    }
+
+    if (riskLevel === 'HIGH') {
+        statuses.push('HIGH_RISK')
+    }
+
+    return [...new Set(statuses)]
+}
+
 function mapEdgeIdsToEdges(edgeIds: string[]) {
     return edgeIds.map((edgeId) => world.edgesById.get(edgeId)).filter(Boolean) as MockEdge[]
 }
 
-function uniqueIds(ids: string[]) {
-    return [...new Set(ids)]
+function mapEdgeIdsToBackendEdges(edgeIds: string[], includeAttributes: boolean) {
+    return mapEdgeIdsToEdges(edgeIds).map((edge) => toBackendEdge(edge, includeAttributes))
 }
 
-function createDeliveredSubgraph(): DeliveredSubgraph {
+function toBackendEdge(edge: MockEdge, includeAttributes: boolean): BackendGraphEdge {
+    const timestamp = typeof edge.attributes.timestamp === 'string'
+        ? edge.attributes.timestamp
+        : undefined
+    const eventTs = typeof edge.attributes.event_ts === 'number'
+        ? new Date(edge.attributes.event_ts).toISOString()
+        : timestamp
+    const strength = edge.attributes.strengthScore ?? edge.attributes.strength ?? edge.attributes.ratio
+
     return {
-        nodeIds: new Set<string>(),
-        edgeIds: new Set<string>(),
+        edgeId: edge.edgeId,
+        fromNodeId: edge.source,
+        toNodeId: edge.target,
+        type: edge.edgeType,
+        relationFamily: edge.relationFamily,
+        directed: edge.direction !== 'UNDIRECTED',
+        weight: typeof strength === 'number' ? strength : undefined,
+        sourceSystem: 'MSW',
+        firstSeenAt: eventTs,
+        lastSeenAt: eventTs,
+        attributes: includeAttributes ? edge.attributes : {},
     }
+}
+
+function getNodeSearchRank(node: MockNode, normalizedQuery: string) {
+    const values = [
+        node.nodeId,
+        node.displayName,
+        node.entityType,
+        ...Object.values(node.attributes).map((value) => String(value)),
+    ].map((value) => value.toLowerCase())
+
+    if (values.some((value) => value === normalizedQuery)) return 0
+    if (values.some((value) => value.startsWith(normalizedQuery))) return 1
+    if (values.some((value) => value.includes(normalizedQuery))) return 2
+
+    return null
+}
+
+function uniqueIds(ids: string[]) {
+    return [...new Set(ids)]
 }
 
 function buildWorld(config: { seed: number; totalNodes: number; rootCount: number }): World {
@@ -345,19 +584,18 @@ function buildWorld(config: { seed: number; totalNodes: number; rootCount: numbe
     }
 
     for (let i = 1; i <= config.rootCount; i++) {
-        const node = makeNode('PARTY', i, rng)
+        const node = makeNode('PERSON', i, rng)
         nodesById.set(node.nodeId, node)
-        idsByType.get('PARTY')!.push(node.nodeId)
+        idsByType.get('PERSON')!.push(node.nodeId)
     }
 
     for (let i = config.rootCount + 1; i <= config.totalNodes; i++) {
         const type = pickWeighted(rng, [
-            { value: 'ACCOUNT', weight: 30 },
-            { value: 'CARD', weight: 15 },
-            { value: 'DEVICE', weight: 15 },
-            { value: 'PHONE', weight: 15 },
+            { value: 'ACCOUNT', weight: 38 },
+            { value: 'PERSON', weight: 20 },
             { value: 'COMPANY', weight: 10 },
-            { value: 'PARTY', weight: 15 },
+            { value: 'LOAN', weight: 14 },
+            { value: 'MEDIUM', weight: 18 },
         ] satisfies { value: EntityType; weight: number }[])
         const seq = (idsByType.get(type)?.length ?? 0) + 1
         const node = makeNode(type, seq, rng)
@@ -380,8 +618,9 @@ function buildWorld(config: { seed: number; totalNodes: number; rootCount: numbe
             const targetId = targetIds[randomInt(rng, 0, targetIds.length - 1)]
             if (!targetId || targetId === sourceNode.nodeId) continue
 
-            const relationFamily = inferRelation(sourceType, targetType)
-            const edgeId = `${relationFamily}:${sourceNode.nodeId}:${targetId}`
+            const relation = inferRelation(sourceType, targetType, rng)
+            const eventTime = randomTimestamp(rng)
+            const edgeId = `${relation.edgeType}:${sourceNode.nodeId}:${targetId}:${eventTime}`
 
             if (seenEdges.has(edgeId)) continue
             seenEdges.add(edgeId)
@@ -390,9 +629,10 @@ function buildWorld(config: { seed: number; totalNodes: number; rootCount: numbe
                 edgeId,
                 source: sourceNode.nodeId,
                 target: targetId,
-                relationFamily,
-                direction: 'OUTBOUND',
-                attributes: makeEdgeAttributes(relationFamily, rng),
+                edgeType: relation.edgeType,
+                relationFamily: relation.relationFamily,
+                direction: relation.directed ? 'OUTBOUND' : 'UNDIRECTED',
+                attributes: makeEdgeAttributes(relation.edgeType, relation.relationFamily, eventTime, rng),
             }
 
             edgesById.set(edge.edgeId, edge)
@@ -405,7 +645,7 @@ function buildWorld(config: { seed: number; totalNodes: number; rootCount: numbe
         nodesById,
         edgesById,
         edgeIdsByNodeId,
-        rootNodeIds: idsByType.get('PARTY')!.slice(0, config.rootCount),
+        rootNodeIds: idsByType.get('PERSON')!.slice(0, config.rootCount),
     }
 }
 
@@ -432,145 +672,303 @@ function makeNode(type: EntityType, seq: number, rng: () => number): MockNode {
 }
 
 function makeNodeAttributes(type: EntityType, seq: number, rng: () => number) {
-    if (type === 'PARTY') {
+    if (type === 'PERSON') {
         return {
-            party_rk: `PRK_${String(seq).padStart(8, '0')}`,
-            risk_score: Math.floor(rng() * 100),
-            residency: pickWeighted(rng, [
-                { value: 'RU', weight: 50 },
-                { value: 'KZ', weight: 15 },
-                { value: 'AM', weight: 10 },
-                { value: 'BY', weight: 15 },
-                { value: 'GE', weight: 10 },
+            person_id: `FB_PERSON_ID_${String(seq).padStart(8, '0')}`,
+            party_rk: `FB_PARTY_${String(seq).padStart(8, '0')}`,
+            name: `Person ${seq}`,
+            gender: pickWeighted(rng, [
+                { value: 'FEMALE', weight: 49 },
+                { value: 'MALE', weight: 49 },
+                { value: 'UNKNOWN', weight: 2 },
             ]),
+            birthday: randomDate(rng, 1950, 2004),
+            country: pickCountry(rng),
+            city: pickCity(rng),
+            isBlocked: rng() > 0.93,
+            isVip: rng() > 0.96,
+        }
+    }
+
+    if (type === 'COMPANY') {
+        return {
+            company_id: `FB_COMPANY_${String(seq).padStart(8, '0')}`,
+            name: `Company ${seq}`,
+            business: pickWeighted(rng, [
+                { value: 'TRADE', weight: 26 },
+                { value: 'FINANCE', weight: 20 },
+                { value: 'LOGISTICS', weight: 18 },
+                { value: 'IT', weight: 18 },
+                { value: 'OTHER', weight: 18 },
+            ]),
+            description: `FinBench company ${seq}`,
+            url: `https://company-${seq}.example.test`,
+            country: pickCountry(rng),
+            city: pickCity(rng),
+            isBlocked: rng() > 0.95,
         }
     }
 
     if (type === 'ACCOUNT') {
         return {
-            account_rk: `ARK_${String(seq).padStart(8, '0')}`,
-            balance: Math.floor(rng() * 5_000_000),
+            account_no: `FB_ACCOUNT_${String(seq).padStart(8, '0')}`,
+            nickname: `Account ${seq}`,
+            accountType: pickWeighted(rng, [
+                { value: 'CHECKING', weight: 50 },
+                { value: 'SAVINGS', weight: 25 },
+                { value: 'CARD', weight: 15 },
+                { value: 'BUSINESS', weight: 10 },
+            ]),
+            phone: `+7${String(9000000000 + seq).slice(-10)}`,
+            email: `account${seq}@example.test`,
+            accountLevel: pickWeighted(rng, [
+                { value: 'BASIC', weight: 55 },
+                { value: 'STANDARD', weight: 30 },
+                { value: 'PREMIUM', weight: 12 },
+                { value: 'VIP', weight: 3 },
+            ]),
+            balance: randomInt(rng, 0, 8_000_000),
             currency: pickWeighted(rng, [
-                { value: 'RUB', weight: 60 },
-                { value: 'USD', weight: 20 },
-                { value: 'EUR', weight: 20 },
+                { value: 'RUB', weight: 70 },
+                { value: 'USD', weight: 15 },
+                { value: 'EUR', weight: 15 },
             ]),
+            isBlocked: rng() > 0.96,
         }
     }
 
-    if (type === 'CARD') {
+    if (type === 'LOAN') {
         return {
-            card_rk: `CRD_${String(seq).padStart(8, '0')}`,
-            masked_pan: `2200****${String(1000 + seq).slice(-4)}`,
-            status: pickWeighted(rng, [
-                { value: 'ACTIVE', weight: 80 },
-                { value: 'BLOCKED', weight: 20 },
+            loan_id: `FB_LOAN_${String(seq).padStart(8, '0')}`,
+            loanAmount: randomInt(rng, 50_000, 12_000_000),
+            balance: randomInt(rng, 0, 10_000_000),
+            purpose: pickWeighted(rng, [
+                { value: 'CONSUMER', weight: 35 },
+                { value: 'MORTGAGE', weight: 20 },
+                { value: 'BUSINESS', weight: 25 },
+                { value: 'AUTO', weight: 20 },
             ]),
-        }
-    }
-
-    if (type === 'DEVICE') {
-        return {
-            device_id: `DEV_${String(seq).padStart(8, '0')}`,
-            os_family: pickWeighted(rng, [
-                { value: 'ANDROID', weight: 50 },
-                { value: 'IOS', weight: 30 },
-                { value: 'WINDOWS', weight: 20 },
-            ]),
-        }
-    }
-
-    if (type === 'PHONE') {
-        return {
-            phone_id: `PHN_${String(seq).padStart(8, '0')}`,
-            country_code: pickWeighted(rng, [
-                { value: '+7', weight: 70 },
-                { value: '+374', weight: 10 },
-                { value: '+375', weight: 10 },
-                { value: '+995', weight: 10 },
-            ]),
+            interestRate: Math.round((4 + rng() * 24) * 100) / 100,
         }
     }
 
     return {
-        company_rk: `COM_${String(seq).padStart(8, '0')}`,
-        industry: pickWeighted(rng, [
-            { value: 'TRADE', weight: 30 },
-            { value: 'IT', weight: 20 },
-            { value: 'LOGISTICS', weight: 20 },
-            { value: 'FINANCE', weight: 15 },
-            { value: 'OTHER', weight: 15 },
+        medium_id: `FB_MEDIUM_${String(seq).padStart(8, '0')}`,
+        mediumType: pickWeighted(rng, [
+            { value: 'IP', weight: 35 },
+            { value: 'POS', weight: 20 },
+            { value: 'MAC', weight: 15 },
+            { value: 'PHONE', weight: 20 },
+            { value: 'DEVICE', weight: 10 },
         ]),
+        location: pickCity(rng),
+        lastLoginAt: randomTimestamp(rng),
+        riskLevel: pickWeighted(rng, [
+            { value: 'LOW', weight: 60 },
+            { value: 'MEDIUM', weight: 28 },
+            { value: 'HIGH', weight: 12 },
+        ]),
+        isBlocked: rng() > 0.97,
     }
 }
 
-function makeEdgeAttributes(relationFamily: string, rng: () => number) {
-    return {
-        strength: Math.round(rng() * 100) / 100,
-        amount: relationFamily === 'ACCOUNT_TRANSFER_ACCOUNT' ? Math.floor(rng() * 500_000) : null,
-        event_ts: Date.now() - Math.floor(rng() * 30 * 24 * 60 * 60 * 1000),
+function makeEdgeAttributes(edgeType: string, relationFamily: string, timestamp: string, rng: () => number) {
+    const base = {
+        benchmark: 'LDBC FinBench',
+        relation: edgeType,
+        relationFamily,
+        timestamp,
+        strengthScore: Math.round((0.45 + rng() * 0.55) * 100) / 100,
     }
+
+    if (['TRANSFERS_TO', 'WITHDRAWS_TO', 'DEPOSITS_TO', 'REPAYS'].includes(edgeType)) {
+        return {
+            ...base,
+            amount: randomInt(rng, 1_000, 900_000),
+            ordernumber: `ORD-${randomInt(rng, 100000, 999999)}`,
+            comment: pickWeighted(rng, [
+                { value: 'invoice payment', weight: 30 },
+                { value: 'cash movement', weight: 20 },
+                { value: 'loan operation', weight: 20 },
+                { value: 'goods payment', weight: 30 },
+            ]),
+            payType: pickWeighted(rng, [
+                { value: 'CARD', weight: 35 },
+                { value: 'WIRE', weight: 30 },
+                { value: 'SBP', weight: 25 },
+                { value: 'CASH', weight: 10 },
+            ]),
+            goodsType: pickWeighted(rng, [
+                { value: 'SERVICES', weight: 40 },
+                { value: 'GOODS', weight: 35 },
+                { value: 'FINANCE', weight: 15 },
+                { value: 'UNKNOWN', weight: 10 },
+            ]),
+        }
+    }
+
+    if (edgeType === 'SIGNED_IN_WITH') {
+        return {
+            ...base,
+            location: pickCity(rng),
+        }
+    }
+
+    if (edgeType === 'INVESTS_IN') {
+        return {
+            ...base,
+            ratio: Math.round(rng() * 10000) / 10000,
+        }
+    }
+
+    if (edgeType === 'APPLIES_FOR') {
+        return {
+            ...base,
+            organization: pickWeighted(rng, [
+                { value: 'Acme Bank', weight: 35 },
+                { value: 'Northwind Credit', weight: 25 },
+                { value: 'Contoso Finance', weight: 25 },
+                { value: 'Fabrikam Loans', weight: 15 },
+            ]),
+        }
+    }
+
+    if (edgeType === 'GUARANTEES') {
+        return {
+            ...base,
+            relationship: pickWeighted(rng, [
+                { value: 'FAMILY', weight: 28 },
+                { value: 'BUSINESS_PARTNER', weight: 28 },
+                { value: 'EMPLOYER', weight: 16 },
+                { value: 'UNKNOWN', weight: 28 },
+            ]),
+        }
+    }
+
+    return base
 }
 
 function pickTargetType(sourceType: EntityType, rng: () => number): EntityType {
-    if (sourceType === 'PARTY') {
+    if (sourceType === 'PERSON') {
         return pickWeighted(rng, [
-            { value: 'ACCOUNT', weight: 35 },
-            { value: 'PHONE', weight: 20 },
-            { value: 'DEVICE', weight: 20 },
-            { value: 'COMPANY', weight: 10 },
-            { value: 'PARTY', weight: 15 },
+            { value: 'ACCOUNT', weight: 32 },
+            { value: 'LOAN', weight: 18 },
+            { value: 'COMPANY', weight: 18 },
+            { value: 'PERSON', weight: 22 },
+            { value: 'MEDIUM', weight: 10 },
+        ])
+    }
+
+    if (sourceType === 'COMPANY') {
+        return pickWeighted(rng, [
+            { value: 'ACCOUNT', weight: 32 },
+            { value: 'LOAN', weight: 20 },
+            { value: 'COMPANY', weight: 28 },
+            { value: 'MEDIUM', weight: 20 },
         ])
     }
 
     if (sourceType === 'ACCOUNT') {
         return pickWeighted(rng, [
-            { value: 'ACCOUNT', weight: 45 },
-            { value: 'CARD', weight: 20 },
-            { value: 'PARTY', weight: 20 },
-            { value: 'COMPANY', weight: 15 },
+            { value: 'ACCOUNT', weight: 68 },
+            { value: 'LOAN', weight: 32 },
         ])
     }
 
-    if (sourceType === 'CARD') {
+    if (sourceType === 'LOAN') {
         return pickWeighted(rng, [
-            { value: 'ACCOUNT', weight: 70 },
-            { value: 'PARTY', weight: 30 },
-        ])
-    }
-
-    if (sourceType === 'DEVICE') {
-        return pickWeighted(rng, [
-            { value: 'PARTY', weight: 80 },
-            { value: 'ACCOUNT', weight: 20 },
-        ])
-    }
-
-    if (sourceType === 'PHONE') {
-        return pickWeighted(rng, [
-            { value: 'PARTY', weight: 85 },
-            { value: 'COMPANY', weight: 15 },
+            { value: 'ACCOUNT', weight: 92 },
+            { value: 'COMPANY', weight: 8 },
         ])
     }
 
     return pickWeighted(rng, [
-        { value: 'PARTY', weight: 50 },
-        { value: 'ACCOUNT', weight: 30 },
-        { value: 'COMPANY', weight: 20 },
+        { value: 'ACCOUNT', weight: 88 },
+        { value: 'PERSON', weight: 6 },
+        { value: 'COMPANY', weight: 6 },
     ])
 }
 
-function inferRelation(sourceType: EntityType, targetType: EntityType) {
-    if (sourceType === 'PARTY' && targetType === 'ACCOUNT') return 'PARTY_OWNS_ACCOUNT'
-    if (sourceType === 'PARTY' && targetType === 'PHONE') return 'PARTY_USES_PHONE'
-    if (sourceType === 'PARTY' && targetType === 'DEVICE') return 'PARTY_USES_DEVICE'
-    if (sourceType === 'PARTY' && targetType === 'COMPANY') return 'PARTY_ASSOCIATED_WITH_COMPANY'
-    if (sourceType === 'ACCOUNT' && targetType === 'ACCOUNT') return 'ACCOUNT_TRANSFER_ACCOUNT'
-    if (sourceType === 'CARD' && targetType === 'ACCOUNT') return 'CARD_LINKED_ACCOUNT'
-    if (sourceType === 'DEVICE' && targetType === 'PARTY') return 'DEVICE_USED_BY_PARTY'
-    if (sourceType === 'PHONE' && targetType === 'PARTY') return 'PHONE_USED_BY_PARTY'
-    if (sourceType === 'PARTY' && targetType === 'PARTY') return 'PERSON_KNOWS_PERSON'
-    return `${sourceType}_${targetType}`
+function inferRelation(sourceType: EntityType, targetType: EntityType, rng: () => number) {
+    if ((sourceType === 'PERSON' || sourceType === 'COMPANY') && targetType === 'ACCOUNT') {
+        return { edgeType: 'OWNS', relationFamily: 'CUSTOMER_OWNERSHIP', directed: true }
+    }
+
+    if (sourceType === 'ACCOUNT' && targetType === 'ACCOUNT') {
+        return {
+            edgeType: pickWeighted(rng, [
+                { value: 'TRANSFERS_TO', weight: 78 },
+                { value: 'WITHDRAWS_TO', weight: 22 },
+            ]),
+            relationFamily: 'ACCOUNT_FLOW',
+            directed: true,
+        }
+    }
+
+    if ((sourceType === 'PERSON' || sourceType === 'COMPANY') && targetType === 'LOAN') {
+        return { edgeType: 'APPLIES_FOR', relationFamily: 'LOAN_APPLICATION', directed: true }
+    }
+
+    if (sourceType === 'LOAN' && targetType === 'ACCOUNT') {
+        return { edgeType: 'DEPOSITS_TO', relationFamily: 'LOAN_FLOW', directed: true }
+    }
+
+    if (sourceType === 'ACCOUNT' && targetType === 'LOAN') {
+        return { edgeType: 'REPAYS', relationFamily: 'LOAN_FLOW', directed: true }
+    }
+
+    if (sourceType === 'MEDIUM' && targetType === 'ACCOUNT') {
+        return { edgeType: 'SIGNED_IN_WITH', relationFamily: 'SHARED_INFRASTRUCTURE', directed: true }
+    }
+
+    if (sourceType === targetType && (sourceType === 'PERSON' || sourceType === 'COMPANY')) {
+        return {
+            edgeType: 'GUARANTEES',
+            relationFamily: sourceType === 'PERSON' ? 'PERSON_GUARANTEE_PERSON' : 'COMPANY_GUARANTEE_COMPANY',
+            directed: true,
+        }
+    }
+
+    if ((sourceType === 'PERSON' || sourceType === 'COMPANY') && targetType === 'COMPANY') {
+        return { edgeType: 'INVESTS_IN', relationFamily: 'INVESTMENT', directed: true }
+    }
+
+    return { edgeType: 'RELATED_TO', relationFamily: 'OTHER', directed: true }
+}
+
+function pickCountry(rng: () => number) {
+    return pickWeighted(rng, [
+        { value: 'RU', weight: 52 },
+        { value: 'KZ', weight: 14 },
+        { value: 'AM', weight: 10 },
+        { value: 'BY', weight: 12 },
+        { value: 'GE', weight: 12 },
+    ])
+}
+
+function pickCity(rng: () => number) {
+    return pickWeighted(rng, [
+        { value: 'Moscow', weight: 30 },
+        { value: 'Saint Petersburg', weight: 18 },
+        { value: 'Kazan', weight: 14 },
+        { value: 'Almaty', weight: 12 },
+        { value: 'Yerevan', weight: 10 },
+        { value: 'Tbilisi', weight: 8 },
+        { value: 'Minsk', weight: 8 },
+    ])
+}
+
+function randomDate(rng: () => number, startYear: number, endYear: number) {
+    const year = randomInt(rng, startYear, endYear)
+    const month = String(randomInt(rng, 1, 12)).padStart(2, '0')
+    const day = String(randomInt(rng, 1, 28)).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
+function randomTimestamp(rng: () => number) {
+    const now = Date.now()
+    const windowMs = 180 * 24 * 60 * 60 * 1000
+    return new Date(now - Math.floor(rng() * windowMs)).toISOString()
 }
 
 function sampleDegree(rng: () => number) {

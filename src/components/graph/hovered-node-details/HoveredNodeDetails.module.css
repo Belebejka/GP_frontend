@@ -1,0 +1,83 @@
+.card {
+    position: absolute;
+    z-index: 900;
+    min-width: 240px;
+    max-width: 360px;
+    border: 1px solid rgba(0, 255, 255, 0.72);
+    border-radius: 8px;
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow:
+        0 0 14px rgba(0, 255, 255, 0.3),
+        inset 0 0 16px rgba(0, 255, 255, 0.08);
+    color: #eaf7ff;
+    padding: 12px 14px;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.title {
+    overflow: hidden;
+    color: #f4fbff;
+    font-size: 14px;
+    font-weight: 900;
+    text-overflow: ellipsis;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.28);
+    white-space: nowrap;
+}
+
+.type {
+    color: #0ff;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.statuses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.status {
+    background: rgba(3, 6, 12, 0.34);
+    border: 1px solid rgba(0, 255, 255, 0.34);
+    color: #dff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 6px;
+}
+
+.details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 10px 0 0;
+}
+
+.detailRow {
+    border-top: 1px solid rgba(0, 255, 255, 0.14);
+    display: flex;
+    font-size: 12px;
+    gap: 12px;
+    justify-content: space-between;
+    padding-top: 6px;
+}
+
+.detailRow dt {
+    color: #8af;
+}
+
+.detailRow dd {
+    color: #eaf7ff;
+    font-weight: 600;
+    margin: 0;
+    text-align: right;
+}

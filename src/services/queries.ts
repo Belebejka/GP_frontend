@@ -1,36 +1,42 @@
-import { useQuery } from "@tanstack/react-query";
-import { expandGraph, getExpandPreview, getMockRoots, searchGraph } from "./responses";
-import type { GraphSearchRequest, ExpandRequest } from "./types";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { expandGraph, getFullGraph, getNodeSummary, previewExpandGraph, searchNodes, type NodeSummaryOptions, type SearchNodesOptions } from "./responses";
 
-export function useSearchGraphQuery(payload: GraphSearchRequest) {
+export function useGetNodeSummaryQuery(nodeId: string, options: NodeSummaryOptions = {}, enabled = true) {
     return useQuery({
-        queryKey: ['graph-search', payload],
-        queryFn: () => searchGraph(payload),
-        enabled: payload.nodeId != "",
+        queryKey: ['graph-node-summary', nodeId, options.relationFamily, options.direction],
+        queryFn: () => getNodeSummary(nodeId, options),
+        enabled: enabled && nodeId.trim().length > 0,
     });
 }
 
-export function useGetExpandPreviewQuery(payload: ExpandRequest) {
-    return useQuery({
-        queryKey: ['graph-expand-preview', payload],
-        queryFn: () => getExpandPreview(payload),
-        enabled: payload !== null,
-    });
-}
-
-export function useExpandGraphQuery(payload: ExpandRequest) {
-    return useQuery({
-        queryKey: ['graph-expand', payload],
-        queryFn: () => expandGraph(payload),
-        enabled: payload.nodeIds[0] !== "",
+export function useExpandGraphMutation() {
+    return useMutation({
+        mutationFn: expandGraph,
     })
 }
 
-//#region Only mock
-export function useGetMockRoots() {
+export function usePreviewExpandGraphMutation() {
+    return useMutation({
+        mutationFn: previewExpandGraph,
+    })
+}
+
+export function useFullGraphMutation() {
+    return useMutation({
+        mutationFn: getFullGraph,
+    })
+}
+
+export function useSearchNodesQuery(query: string) {
     return useQuery({
-        queryKey: ["mock-roots"],
-        queryFn: () => getMockRoots(50),
+        queryKey: ['graph-nodes-search', query],
+        queryFn: () => searchNodes(query, { includeAttributes: false, limit: 10 }),
+        enabled: query.trim().length > 0,
     });
 }
-//#endregion
+
+export function useSearchNodesMutation() {
+    return useMutation({
+        mutationFn: ({ query, options }: { query: string; options?: SearchNodesOptions }) => searchNodes(query, options),
+    });
+}

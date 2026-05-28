@@ -1,20 +1,53 @@
-import { SigmaContainer, useLoadGraph, useRegisterEvents, useSigma } from "@react-sigma/core";
+import { SigmaContainer, useLoadGraph, useSetSettings, useSigma } from "@react-sigma/core";
+import { useWorkerLayoutForceAtlas2 } from "@react-sigma/layout-forceatlas2";
+import { createNodeImageProgram } from "@sigma/node-image";
+import { getCameraStateToFitViewportToNodes  } from "@sigma/utils";
 import Graph from "graphology";
-import { useWorkerLayoutForceAtlas2 } from '@react-sigma/layout-forceatlas2';
 import { useEffect, useRef } from "react";
+import { createNodeCompoundProgram, NodeCircleProgram } from "sigma/rendering";
 
-import "@react-sigma/core/lib/style.css"
-import { useAppendLayoutVersion, useIsLayoutRunning, useIsNeedToBeReload, useLayoutVersion, useSetIsLayoutRunning, useSetIsNeedToBeReload, useSetOpenedNode, useSetSigma } from "../../store/ClientStore";
-import NodeContextMenu from "./NodeContextMenu";
-import { useSettingsOfLayout, useTimeOfWorking } from "../../store/LayoutSettingsStore";
+import "@react-sigma/core/lib/style.css";
+import {
+    useGraphMode,
+    useGrowNodesOnZoom,
+    useIsLayoutRunning,
+    useNodesToReload,
+    useNodesToResetCamera,
+    useSetIsLayoutRunning,
+    useSetNodesToResetCamera,
+    useSetSigma,
+} from "../../store/ClientStore";
+import { useSettingsOfLayout } from "../../store/LayoutSettingsStore";
+import { drawNodeHover, graphEdgeReducer, graphNodeReducer } from "./GraphVisualization";
+import { WidePickingEdgeProgram } from "./custom_programmes/WidePickingEdgeProgram";
+import { GraphModeSwitcher } from "./graph-mode-switcher/GraphModeSwitcher";
+import { ClusterPickerDialog } from "./clusters/ClusterPickerDialog";
+import { ClusterGraphMode } from "./modes/ClusterGraphMode";
+import { ExpandGraphMode } from "./modes/ExpandGraphMode";
+
+const NodePictogramCustomProgram = createNodeImageProgram({
+    padding: 0.30,
+    size: { mode: "force", value: 256 },
+    correctCentering: true,
+    drawingMode: "color",
+    colorAttribute: "pictoColor",
+});
+
+const NodeProgram = createNodeCompoundProgram([NodeCircleProgram, NodePictogramCustomProgram]);
+const growOnZoomSizeRatioFunction = (ratio: number) => Math.sqrt(ratio);
+const staticOnZoomSizeRatioFunction = (ratio: number) => Math.max(1, ratio);
 
 function LoadGraph() {
-    const graph = new Graph();
+    const graphRef = useRef<Graph | null>(null);
+    if (!graphRef.current) {
+        graphRef.current = new Graph();
+    }
+
     const loadGraph = useLoadGraph();
 
     useEffect(() => {
-        loadGraph(graph);
-    }, [loadGraph])
+        loadGraph(graphRef.current!);
+    }, [loadGraph]);
 
     return null;
 }
@@ -23,165 +56,65 @@ function InitialCamera() {
     const sigma = useSigma();
 
     useEffect(() => {
-        sigma.getCamera().setState({
-            ratio: 0.2,
-        });
+        sigma.getCamera().setState({ ratio: 0.2 });
     }, [sigma]);
 
     return null;
 }
 
-function InitialLayout() {
+function Layout() {
     const sigma = useSigma();
-    const layoutVersion = useLayoutVersion();
-    const needToBeReload = useIsNeedToBeReload();
     const layoutSettings = useSettingsOfLayout();
-    const timeOfWorking = useTimeOfWorking();
-
+    const nodesToReload = useNodesToReload();
     const setIsLayoutRunning = useSetIsLayoutRunning();
-    const setIsNeedToBeReload = useSetIsNeedToBeReload();
-
-    const appendLayoutVersion = useAppendLayoutVersion();
-    // const resetCamera = useResetCamera();
-
-    const { start, stop } = useWorkerLayoutForceAtlas2({
-        settings: layoutSettings,
-    });
-
+    const { start, stop } = useWorkerLayoutForceAtlas2({ settings: layoutSettings });
     const graph = sigma.getGraph();
 
-    if (needToBeReload) {
-        graph.forEachNode((node) => {
-            graph.setNodeAttribute(node, "fixed", false);
-        });
-        setIsNeedToBeReload(false);
-        appendLayoutVersion();
-    }
-
     useEffect(() => {
-        start();
-        setIsLayoutRunning(true);
-
-        const timeoutId = setTimeout(() => {
-            stop();
-
-            graph.forEachNode((node) => {
-                graph.setNodeAttribute(node, "fixed", true);
-            });
-
-            sigma.refresh();
+        if (nodesToReload.length > 0) {
+            nodesToReload.forEach((node) => graph.setNodeAttribute(node, "fixed", false));
+            setIsLayoutRunning(true);
+            start();
+        } else {
             setIsLayoutRunning(false);
-        }, timeOfWorking);
+        }
 
-        return () => {            
-            clearTimeout(timeoutId);
+        return () => {
+            nodesToReload.forEach((node) => graph.setNodeAttribute(node, "fixed", true));
+            stop();
         };
-    }, [sigma, start, stop, layoutVersion]);
+    }, [graph, nodesToReload, setIsLayoutRunning, start, stop]);
 
     return null;
 }
 
-function GraphEvents() {
-    const registerEvents = useRegisterEvents();
+function CameraFocusController() {
     const sigma = useSigma();
-    
-    const draggedNodeRef = useRef<string | null>(null);
-    const isNodeMovedRef = useRef(false);
+    const nodesToReload = useNodesToReload();
+    const nodesToResetCamera = useNodesToResetCamera();
     const isLayoutRunning = useIsLayoutRunning();
+    const setNodesToResetCamera = useSetNodesToResetCamera();
 
-    const setOpenedNode = useSetOpenedNode();
-
-//#region Функции touch/mouse
-    const stopDragging = () => {
-        draggedNodeRef.current = null;
-    };
-
-    const ensureCustomBBox = () => {
-        if (!sigma.getCustomBBox()) {
-            sigma.setCustomBBox(sigma.getBBox());
-        }
-    };
-
-    const moveDraggedNode = (x: number, y: number) => {
-        if (!draggedNodeRef.current) return;
-
-        isNodeMovedRef.current = true;
+    useEffect(() => {
+        if (nodesToResetCamera.length === 0) return;
+        if (isLayoutRunning || nodesToReload.length > 0) return;
         
-        const pos = sigma.viewportToGraph({ x, y });
+        const graph = sigma.getGraph();
+        const existingNodes = nodesToResetCamera.filter((node) => graph.hasNode(node));
 
-        sigma.getGraph().setNodeAttribute(draggedNodeRef.current, "x", pos.x);
-        sigma.getGraph().setNodeAttribute(draggedNodeRef.current, "y", pos.y);
-        sigma.refresh();
-    };
-
-    const stopPointerEvent = (
-        e: {
-            preventSigmaDefault: () => void;
-            original: {
-                preventDefault: () => void;
-                stopPropagation: () => void;
-            };
+        if (existingNodes.length > 0) {
+            sigma.setCustomBBox(null);
+            sigma.refresh();
+            const cameraState = getCameraStateToFitViewportToNodes(sigma, existingNodes);
+            sigma.getCamera().animate(cameraState, {
+                duration: 500,
+                easing: "quadraticInOut",
+            }).then(() => setNodesToResetCamera([]));
         }
-    ) => {
-        if (!draggedNodeRef.current) return;
-        e.preventSigmaDefault();
-        e.original.preventDefault();
-        e.original.stopPropagation();
-    };
-//#endregion
 
-    useEffect(() =>{
-        registerEvents({
-            clickNode: (e) => {
-                if (isNodeMovedRef.current) {
-                    isNodeMovedRef.current = false;
-                    return;
-                }
+    }, [isLayoutRunning, nodesToReload, nodesToResetCamera, setNodesToResetCamera, sigma]);
 
-                setOpenedNode(e.node);
-            },
-            
-            updated: () => {
-                setOpenedNode(null);
-            },
-
-            clickStage: () => {
-                setOpenedNode(null);
-            },
-
-            downNode: (e) => {                
-                setOpenedNode(null);
-
-                const original = e.event.original;
-
-                if ((original instanceof MouseEvent)) {
-                    const button = original.button;
-                    if (button !== 0) return;
-                };
-
-                if (!isLayoutRunning) draggedNodeRef.current = e.node;
-            },
-
-            mouseup: stopDragging,
-            touchup: stopDragging,
-
-            mousedown: ensureCustomBBox,
-            touchdown: ensureCustomBBox,
-
-            mousemovebody: (e) => {
-                moveDraggedNode(e.x, e.y);
-                stopPointerEvent(e);
-            },
-
-            touchmove: (e) => {
-                moveDraggedNode(e.touches[0].x, e.touches[0].y);
-                stopPointerEvent(e);
-            },
-        })
-
-    }, [registerEvents, sigma, isLayoutRunning])
-
-    return null
+    return null;
 }
 
 function StoreSigma() {
@@ -190,30 +123,73 @@ function StoreSigma() {
 
     useEffect(() => {
         setSigma(sigma);
-    }, [])
+    }, [setSigma, sigma]);
+
+    return null;
+}
+
+function NodeSizeZoomController() {
+    const setSettings = useSetSettings();
+    const growNodesOnZoom = useGrowNodesOnZoom();
+
+    useEffect(() => {
+        setSettings({
+            zoomToSizeRatioFunction: growNodesOnZoom
+                ? growOnZoomSizeRatioFunction
+                : staticOnZoomSizeRatioFunction,
+        });
+    }, [growNodesOnZoom, setSettings]);
 
     return null;
 }
 
 export default function GraphComponent() {
-    return <SigmaContainer
-        style={{
-            height: "100vh", 
-            width: "100%", 
-            backgroundColor: "#f0f0e5",
-        }}
-        settings={{
-            autoRescale: true,
-            itemSizesReference: "screen",
-            minCameraRatio: 0.05,
-            maxCameraRatio: 10,
-        }}
-    >
-        <LoadGraph />
-        <StoreSigma />
-        <GraphEvents />
-        <InitialLayout />
-        <InitialCamera />
-        <NodeContextMenu />
-    </SigmaContainer>
+    const graphMode = useGraphMode();
+    const isExpandMode = graphMode === "expand";
+    const isClusterMode = graphMode === "cluster";
+
+    return (
+        <SigmaContainer
+            style={{
+                height: "100vh",
+                width: "100%",
+                backgroundColor: "#050a12",
+                backgroundImage: `
+                    repeating-linear-gradient(0deg, rgba(0, 255, 255, 0.03) 0px, rgba(0, 255, 255, 0.03) 1px, transparent 1px, transparent 40px),
+                    repeating-linear-gradient(90deg, rgba(255, 0, 255, 0.03) 0px, rgba(255, 0, 255, 0.03) 1px, transparent 1px, transparent 40px)
+                `,
+                position: "relative" as const,
+            }}
+            settings={{
+                autoRescale: true,
+                itemSizesReference: "screen",
+                zoomToSizeRatioFunction: growOnZoomSizeRatioFunction,
+                minCameraRatio: 0.05,
+                maxCameraRatio: 10,
+                enableEdgeEvents: true,
+                nodeProgramClasses: { pictogram: NodeProgram },
+                edgeProgramClasses: { line: WidePickingEdgeProgram },
+                nodeReducer: graphNodeReducer,
+                edgeReducer: graphEdgeReducer,
+                defaultDrawNodeHover: drawNodeHover,
+            }}
+        >
+            <LoadGraph />
+            <StoreSigma />
+            <NodeSizeZoomController />
+            <Layout />
+            <CameraFocusController />
+            <InitialCamera />
+            <GraphModeSwitcher />
+            <ClusterPickerDialog />
+
+            {isExpandMode && (
+                <ExpandGraphMode />
+            )}
+
+            {isClusterMode && (
+                <ClusterGraphMode />
+            )}
+        </SigmaContainer>
+    );
 }

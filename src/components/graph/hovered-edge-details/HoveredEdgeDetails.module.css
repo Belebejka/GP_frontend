@@ -1,0 +1,75 @@
+.card {
+    position: absolute;
+    z-index: 900;
+    min-width: 220px;
+    max-width: 320px;
+    border: 1px solid rgba(108, 255, 143, 0.72);
+    border-radius: 8px;
+    background: rgba(42, 255, 122, 0.1);
+    box-shadow:
+        0 0 14px rgba(42, 255, 122, 0.28),
+        inset 0 0 16px rgba(42, 255, 122, 0.08);
+    color: #effff4;
+    padding: 12px 14px;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.title {
+    color: #6cff8f;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.typeCapsules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.typeCapsule {
+    border: 1px solid rgba(108, 255, 143, 0.42);
+    background: rgba(3, 6, 12, 0.34);
+    color: #cffff0;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    padding: 4px 7px;
+    text-transform: uppercase;
+}
+
+.details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 10px 0 0;
+}
+
+.detailRow {
+    border-top: 1px solid rgba(108, 255, 143, 0.16);
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    font-size: 12px;
+    padding-top: 6px;
+}
+
+.detailRow dt {
+    color: #9bf6b0;
+}
+
+.detailRow dd {
+    margin: 0;
+    color: #effff4;
+    font-weight: 600;
+    max-width: 240px;
+    text-align: right;
+    word-break: break-word;
+}

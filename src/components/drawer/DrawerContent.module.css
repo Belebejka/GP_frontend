@@ -1,0 +1,125 @@
+.header {
+    align-items: flex-start;
+    display: flex;
+    justify-content: space-between;
+    padding: 22px 22px 18px;
+    position: relative;
+}
+
+.eyebrow {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 3px;
+}
+
+.title {
+    font-size: 28px;
+    line-height: 1;
+    margin: 8px 0 0;
+    text-transform: uppercase;
+}
+
+.closeButton {
+    align-items: center;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 16px;
+    font-weight: 900;
+    height: 38px;
+    justify-content: center;
+    padding: 0;
+    width: 42px;
+}
+
+.content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    position: relative;
+}
+
+.surface {
+    padding: 14px;
+    position: relative;
+}
+
+.sectionTitle {
+    color: #0ff;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    text-shadow: 0 0 7px rgba(0, 255, 255, 0.32);
+    text-transform: uppercase;
+}
+
+.fieldList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+}
+
+.fieldRow {
+    border-top: 1px solid rgba(0, 255, 255, 0.14);
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(92px, 0.45fr) minmax(0, 1fr);
+    padding-top: 8px;
+}
+
+.fieldRow:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.fieldRowStacked {
+    gap: 6px;
+    grid-template-columns: 1fr;
+}
+
+.fieldRow dt {
+    color: #8af;
+    font-size: 12px;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.fieldRow dd {
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0;
+    overflow-wrap: anywhere;
+    text-align: right;
+    white-space: pre-wrap;
+}
+
+.fieldRowStacked dd {
+    text-align: left;
+}
+
+.codeValue {
+    background: rgba(3, 6, 12, 0.34);
+    border: 1px solid rgba(0, 255, 255, 0.16);
+    color: #dff;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    padding: 8px;
+}
+
+.emptyState,
+.errorState {
+    border: 1px dashed rgba(0, 255, 255, 0.36);
+    color: #8af;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 14px;
+}
+
+.errorState {
+    border-color: rgba(255, 55, 95, 0.55);
+    color: #ff8da3;
+}

@@ -1,0 +1,414 @@
+.header {
+    composes: header from "../DrawerContent.module.css";
+    border-bottom: 1px solid rgba(108, 255, 143, 0.34);
+}
+
+.eyebrow {
+    composes: eyebrow from "../DrawerContent.module.css";
+    color: #0ff;
+    text-shadow: 0 0 6px rgba(0, 255, 255, 0.8);
+}
+
+.title {
+    composes: title from "../DrawerContent.module.css";
+    color: #6cff8f;
+    text-shadow: 0 0 12px rgba(42, 255, 122, 0.5);
+}
+
+.closeButton {
+    composes: closeButton from "../DrawerContent.module.css";
+    background: rgba(108, 255, 143, 0.08);
+    border: 1px solid rgba(108, 255, 143, 0.72);
+    color: #6cff8f;
+}
+
+.closeButton:hover {
+    background: rgba(0, 255, 255, 0.12);
+    border-color: #0ff;
+    color: #0ff;
+}
+
+.content {
+    composes: content from "../DrawerContent.module.css";
+    padding: 20px 22px 22px;
+}
+
+.heroCard {
+    composes: surface from "../DrawerContent.module.css";
+    background:
+        radial-gradient(circle at 100% 0%, rgba(108, 255, 143, 0.16), transparent 44%),
+        rgba(0, 255, 255, 0.045);
+    border: 1px solid rgba(0, 255, 255, 0.32);
+    box-shadow: inset 0 0 14px rgba(0, 255, 255, 0.06);
+    margin: 20px 22px 14px;
+}
+
+.section {
+    composes: surface from "../DrawerContent.module.css";
+    border: 1px solid rgba(0, 255, 255, 0.32);
+    background: rgba(0, 255, 255, 0.045);
+    box-shadow: inset 0 0 14px rgba(0, 255, 255, 0.06);
+}
+
+.route {
+    align-items: center;
+    color: #effff4;
+    display: grid;
+    font-size: 15px;
+    font-weight: 900;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.route span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.routeArrow {
+    color: #6cff8f;
+    font-size: 14px;
+    text-shadow: 0 0 8px rgba(42, 255, 122, 0.45);
+}
+
+.nodePair {
+    color: #8af;
+    font-size: 12px;
+    font-weight: 800;
+    margin-top: 8px;
+    overflow-wrap: anywhere;
+}
+
+.typePill {
+    border: 1px solid rgba(108, 255, 143, 0.72);
+    color: #6cff8f;
+    display: inline-flex;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-top: 14px;
+    padding: 5px 8px;
+    text-transform: uppercase;
+}
+
+.tabs {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr 1fr;
+    padding: 0 22px 14px;
+    position: relative;
+}
+
+.tabButton {
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid rgba(0, 255, 255, 0.42);
+    color: #0ff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 900;
+    min-height: 36px;
+    text-transform: uppercase;
+}
+
+.tabButton:hover {
+    border-color: #9bf6b0;
+    color: #9bf6b0;
+}
+
+.tabButtonActive {
+    background: rgba(108, 255, 143, 0.13);
+    border-color: #6cff8f;
+    color: #6cff8f;
+}
+
+.tabPanels {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+.tabPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    inset: 0;
+    min-height: 0;
+    opacity: 0;
+    overflow-y: auto;
+    padding: 0 22px 22px;
+    pointer-events: none;
+    position: absolute;
+    visibility: hidden;
+}
+
+.tabPanelActive {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+}
+
+.sectionTitle {
+    composes: sectionTitle from "../DrawerContent.module.css";
+}
+
+.subsectionTitle {
+    color: #6cff8f;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin: 12px 0 8px;
+    text-transform: uppercase;
+}
+
+.sectionHeader {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+}
+
+.resultCount {
+    color: #effff4;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.statsGrid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.statItem {
+    border-left: 2px solid rgba(108, 255, 143, 0.72);
+    background: rgba(255, 255, 255, 0.035);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 10px 8px;
+}
+
+.statValue {
+    color: #effff4;
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.statLabel {
+    color: #8af;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    margin-top: 6px;
+    text-transform: uppercase;
+}
+
+.countList {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.countRow {
+    display: grid;
+    gap: 5px;
+}
+
+.countMeta {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.countLabel {
+    color: #dff;
+    font-size: 12px;
+    font-weight: 800;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.countValue {
+    color: #6cff8f;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.countTrack {
+    background: rgba(255, 255, 255, 0.06);
+    height: 5px;
+    overflow: hidden;
+}
+
+.countFill {
+    background: linear-gradient(90deg, #0ff, #6cff8f);
+    height: 100%;
+    min-width: 4px;
+}
+
+.filters {
+    display: grid;
+    gap: 10px;
+}
+
+.filterField {
+    display: grid;
+    gap: 6px;
+}
+
+.filterField span {
+    color: #6cff8f;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.select {
+    border: 1px solid rgba(0, 255, 255, 0.65);
+    background: rgba(0, 255, 255, 0.05);
+    color: #0ff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 900;
+    height: 36px;
+    outline: none;
+    padding: 0 10px;
+    text-transform: uppercase;
+    width: 100%;
+}
+
+.select:hover,
+.select:focus {
+    border-color: #6cff8f;
+    background: rgba(108, 255, 143, 0.1);
+    color: #6cff8f;
+}
+
+.select option {
+    background: #07101b;
+    color: #6cff8f;
+}
+
+.fieldList {
+    composes: fieldList from "../DrawerContent.module.css";
+}
+
+.fieldRow {
+    composes: fieldRow from "../DrawerContent.module.css";
+}
+
+.fieldRowStacked {
+    composes: fieldRowStacked from "../DrawerContent.module.css";
+}
+
+.fieldRow dd {
+    color: #effff4;
+}
+
+.codeValue {
+    composes: codeValue from "../DrawerContent.module.css";
+}
+
+.edgeList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.edgeItem {
+    border: 1px solid rgba(0, 255, 255, 0.24);
+    background: rgba(3, 6, 12, 0.24);
+}
+
+.edgeItemButton {
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: #effff4;
+    cursor: pointer;
+    display: grid;
+    gap: 6px;
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+    min-height: 38px;
+    padding: 8px 10px;
+    text-align: left;
+    width: 100%;
+}
+
+.edgeItemButton:hover {
+    background: rgba(0, 255, 255, 0.08);
+}
+
+.edgeItemType,
+.edgeItemId {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.edgeItemType {
+    color: #6cff8f;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.edgeItemId {
+    color: #effff4;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.edgeDetails {
+    border-top: 1px solid rgba(0, 255, 255, 0.18);
+    padding: 10px;
+}
+
+.secondaryButton,
+.primaryButton {
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 900;
+    margin-top: 12px;
+    min-height: 36px;
+    text-transform: uppercase;
+    width: 100%;
+}
+
+.secondaryButton {
+    background: transparent;
+    border: 1px solid rgba(0, 255, 255, 0.72);
+    color: #0ff;
+}
+
+.secondaryButton:hover {
+    border-color: #6cff8f;
+    color: #6cff8f;
+}
+
+.primaryButton {
+    background: rgba(108, 255, 143, 0.08);
+    border: 1px solid rgba(108, 255, 143, 0.72);
+    color: #6cff8f;
+}
+
+.primaryButton:hover {
+    border-color: #0ff;
+    color: #0ff;
+}
+
+.errorState {
+    composes: errorState from "../DrawerContent.module.css";
+}
+
+.emptyState {
+    composes: emptyState from "../DrawerContent.module.css";
+}

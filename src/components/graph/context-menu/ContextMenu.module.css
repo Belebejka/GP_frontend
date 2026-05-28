@@ -1,0 +1,178 @@
+.menu {
+    position: absolute;
+    min-width: 260px;
+    border: 1px solid #0ff;
+    border-radius: 0;
+    background: rgba(3, 6, 12, 0.95);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), inset 0 0 10px rgba(255, 0, 255, 0.1);
+    padding: 14px;
+    z-index: 1000;
+    backdrop-filter: blur(12px);
+}
+
+.closeButton {
+    align-items: center;
+    background: transparent;
+    border: 1px solid rgba(0, 255, 255, 0.55);
+    color: #0ff;
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 700;
+    height: 28px;
+    justify-content: center;
+    padding: 0;
+    transition: 0.1s linear;
+    width: 28px;
+}
+
+.closeButton:hover {
+    border-color: #f0f;
+    box-shadow: 0 0 12px rgba(255, 0, 255, 0.42);
+    color: #f0f;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.header {
+    align-items: flex-start;
+    display: flex;
+    gap: 14px;
+    justify-content: space-between;
+}
+
+.title {
+    color: #f0f;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-shadow: 0 0 5px #f0f;
+    text-transform: uppercase;
+}
+
+.subtitle {
+    color: #8b95a7;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-top: 6px;
+    text-transform: uppercase;
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.secondaryButton,
+.previewButton,
+.primaryButton,
+.edgeInfoButton,
+.dangerButton {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 0 12px;
+    text-transform: uppercase;
+    transition: 0.1s linear;
+}
+
+.previewButton {
+    border: 1px solid #fff173;
+    background: linear-gradient(135deg, rgba(255, 241, 115, 0.12), rgba(0, 255, 255, 0.06));
+    color: #fff173;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(255, 241, 115, 0.28);
+}
+
+.previewButton:hover:not(:disabled) {
+    border-color: #fff173;
+    color: #fff173;
+    box-shadow: 0 0 18px rgba(255, 241, 115, 0.58), inset 0 0 10px rgba(255, 241, 115, 0.1);
+}
+
+.previewButton:disabled {
+    border-color: #3a3420;
+    background: #151824;
+    color: #7b8496;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.secondaryButton {
+    border: 1px solid #f0f;
+    background-color: transparent;
+    color: #0ff;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0, 255, 255, 0.3);
+}
+
+.secondaryButton:hover {
+    background-color: rgba(255, 0, 255, 0.1);
+    box-shadow: 0 0 12px #f0f;
+}
+
+.primaryButton {
+    border: 1px solid rgba(0, 255, 255, 0.72);
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.12), rgba(74, 144, 255, 0.08));
+    color: #0ff;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+}
+
+.primaryButton:hover:not(:disabled) {
+    border-color: #8af;
+    color: #eaf7ff;
+    box-shadow: 0 0 18px rgba(0, 255, 255, 0.56), 0 0 12px rgba(74, 144, 255, 0.45);
+}
+
+.primaryButton:disabled {
+    background: #1a0b2e;
+    color: #8a94a6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.edgeInfoButton {
+    border: 1px solid rgba(108, 255, 143, 0.72);
+    background: linear-gradient(135deg, rgba(108, 255, 143, 0.12), rgba(42, 255, 122, 0.08));
+    color: #6cff8f;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(42, 255, 122, 0.3);
+}
+
+.edgeInfoButton:hover:not(:disabled) {
+    border-color: #9bf6b0;
+    color: #9bf6b0;
+    box-shadow: 0 0 18px rgba(42, 255, 122, 0.56), 0 0 12px rgba(108, 255, 143, 0.45);
+}
+
+.dangerButton {
+    border: 1px solid #ff375f;
+    background-color: rgba(255, 55, 95, 0.08);
+    color: #0ff;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(255, 55, 95, 0.28);
+}
+
+.dangerButton:hover:not(:disabled) {
+    background-color: rgba(255, 55, 95, 0.16);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(255, 55, 95, 0.7);
+}
+
+.dangerButton:disabled {
+    border-color: #3a2430;
+    background: #1a0b2e;
+    color: #8a94a6;
+    cursor: not-allowed;
+    box-shadow: none;
+}

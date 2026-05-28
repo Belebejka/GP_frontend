@@ -1,0 +1,213 @@
+.aside {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    max-width: 23%;
+    border: 1px solid #0ff;
+    border-radius: 0;
+    background: radial-gradient(circle at 20% 30%, #0a0f1c, #03060c);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(255, 0, 255, 0.05);
+    padding: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    z-index: 20;
+}
+
+.opened {
+    max-height: 60%;
+}
+
+.title {
+    color: #f0f;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-shadow: 0 0 5px #f0f;
+    text-transform: uppercase;
+}
+
+.titleRow {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.modeButton {
+    align-items: center;
+    border: 1px solid rgba(0, 255, 255, 0.7);
+    border-radius: 0;
+    background: rgba(0, 255, 255, 0.06);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.25);
+    color: #0ff;
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 34px;
+    height: 30px;
+    justify-content: center;
+    min-width: 45px;
+    padding: 0;
+    transition: 0.1s linear;
+}
+
+.modeButton:hover {
+    border-color: #f0f;
+    background: rgba(255, 0, 255, 0.12);
+    box-shadow: 0 0 12px rgba(255, 0, 255, 0.45);
+    color: #f0f;
+}
+
+.count {
+    color: #0ff;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.toggleButton {
+    width: 100%;
+    border: 1px solid #f0f;
+    border-radius: 0;
+    background: transparent;
+    color: #0ff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 10px;
+    text-transform: uppercase;
+    transition: 0.1s linear;
+}
+
+.toggleButtonOpened {
+    margin-bottom: 8px;
+}
+
+.toggleButton:hover {
+    border-color: #0ff;
+    background-color: rgba(0, 255, 255, 0.1);
+    color: #f0f;
+}
+
+.searchInput {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(0, 255, 255, 0.45);
+    border-radius: 0;
+    background: rgba(3, 6, 12, 0.82);
+    color: #0ff;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    outline: none;
+    padding: 8px 10px;
+}
+
+.searchInput::placeholder {
+    color: rgba(0, 255, 255, 0.45);
+}
+
+.searchInput:focus {
+    border-color: #f0f;
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.28);
+    color: #f0f;
+}
+
+.list {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: space-between;
+    min-height: 0;
+    margin-top: 8px;
+    border-top: 1px solid rgba(0, 255, 255, 0.2);
+    padding-top: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.node {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    border-left: 2px solid transparent;
+    border-radius: 0;
+    color: #0ff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    overflow: hidden;
+    padding: 6px 8px;
+    text-overflow: ellipsis;
+    transition: 0.05s linear;
+    white-space: nowrap;
+}
+
+.node:hover {
+    border-left-color: #f0f;
+    background-color: rgba(51, 22, 51, 0.15);
+    color: #f0f;
+}
+
+.deletedNode {
+    border-left-color: rgba(255, 55, 95, 0.65);
+    gap: 8px;
+    justify-content: space-between;
+    color: #ff8da3;
+}
+
+.nodeLabel {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.deletedNode:hover {
+    border-left-color: #ff375f;
+    background-color: rgba(255, 55, 95, 0.12);
+    color: #ffb8c7;
+}
+
+.returnButton {
+    align-items: center;
+    border: 1px solid rgba(0, 255, 255, 0.65);
+    border-radius: 0;
+    background: rgba(0, 255, 255, 0.06);
+    box-shadow: 0 0 6px rgba(0, 255, 255, 0.22);
+    color: #0ff;
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 24px;
+    height: 22px;
+    justify-content: center;
+    min-width: 24px;
+    margin-left: 8px;
+    margin-right: 0;
+    padding: 0;
+    transition: 0.1s linear;
+}
+
+.returnButton:hover:not(:disabled) {
+    border-color: #ff375f;
+    background: rgba(255, 55, 95, 0.16);
+    box-shadow: 0 0 12px rgba(255, 55, 95, 0.55);
+    color: #fff;
+}
+
+.returnButton:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.returnButton:disabled {
+    border-color: #3a2430;
+    background: #151824;
+    color: #7b8496;
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.58;
+}

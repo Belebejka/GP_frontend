@@ -12,12 +12,13 @@ type LayoutSettingsStore = {
 const useLayoutSettingsStore = create<LayoutSettingsStore>((set) => ({
     settings: { 
         slowDown: 10,
-        scalingRatio: 100,
-        gravity: 25,
+        scalingRatio: 50,
+        gravity: 10,
         strongGravityMode: false,
         adjustSizes: true,
+        edgeWeightInfluence: 0,
     },
-    timeOfWorking: 500,
+    timeOfWorking: 5000,
 
     setSettings: (newSettings) => set(() => ({settings: newSettings})),
     setTimeOfWorking: (newTime) => set(() => ({timeOfWorking: newTime})),

@@ -1,0 +1,127 @@
+.header {
+    composes: header from "../DrawerContent.module.css";
+    border-bottom: 1px solid rgba(0, 255, 255, 0.34);
+}
+
+.eyebrow {
+    composes: eyebrow from "../DrawerContent.module.css";
+    color: #8af;
+    text-shadow: 0 0 6px rgba(74, 144, 255, 0.8);
+}
+
+.title {
+    composes: title from "../DrawerContent.module.css";
+    color: #0ff;
+    text-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
+}
+
+.closeButton {
+    composes: closeButton from "../DrawerContent.module.css";
+    background: rgba(0, 255, 255, 0.08);
+    border: 1px solid rgba(0, 255, 255, 0.72);
+    color: #0ff;
+}
+
+.closeButton:hover {
+    background: rgba(74, 144, 255, 0.14);
+    border-color: #8af;
+    color: #eaf7ff;
+}
+
+.content {
+    composes: content from "../DrawerContent.module.css";
+    gap: 14px;
+    padding: 20px 22px 22px;
+}
+
+.heroCard {
+    composes: surface from "../DrawerContent.module.css";
+    background:
+        radial-gradient(circle at 100% 0%, rgba(74, 144, 255, 0.16), transparent 44%),
+        rgba(0, 255, 255, 0.065);
+    border: 1px solid rgba(0, 255, 255, 0.36);
+    box-shadow: inset 0 0 14px rgba(0, 255, 255, 0.08);
+}
+
+.section {
+    composes: surface from "../DrawerContent.module.css";
+    border: 1px solid rgba(0, 255, 255, 0.36);
+    background: rgba(0, 255, 255, 0.055);
+    box-shadow: inset 0 0 14px rgba(0, 255, 255, 0.08);
+}
+
+.nodeName {
+    color: #f4fbff;
+    font-size: 18px;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.28);
+}
+
+.nodeId {
+    color: #8af;
+    font-size: 12px;
+    font-weight: 800;
+    margin-top: 6px;
+    overflow-wrap: anywhere;
+}
+
+.typePill {
+    border: 1px solid rgba(0, 255, 255, 0.72);
+    color: #0ff;
+    display: inline-flex;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-top: 14px;
+    padding: 5px 8px;
+    text-transform: uppercase;
+}
+
+.sectionTitle {
+    composes: sectionTitle from "../DrawerContent.module.css";
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chip {
+    border: 1px solid rgba(0, 255, 255, 0.42);
+    background: rgba(3, 6, 12, 0.36);
+    color: #dff;
+    font-size: 11px;
+    font-weight: 900;
+    padding: 5px 8px;
+    text-transform: uppercase;
+}
+
+.fieldList {
+    composes: fieldList from "../DrawerContent.module.css";
+}
+
+.fieldRow {
+    composes: fieldRow from "../DrawerContent.module.css";
+}
+
+.fieldRowStacked {
+    composes: fieldRowStacked from "../DrawerContent.module.css";
+}
+
+.fieldRow dd {
+    color: #eaf7ff;
+}
+
+.codeValue {
+    composes: codeValue from "../DrawerContent.module.css";
+}
+
+.errorState {
+    composes: errorState from "../DrawerContent.module.css";
+}
+
+.emptyState {
+    composes: emptyState from "../DrawerContent.module.css";
+}

@@ -1,0 +1,69 @@
+.drawer {
+    --drawer-primary: 255, 241, 115;
+    --drawer-secondary: 0, 255, 255;
+    --drawer-border: #fff173;
+
+    animation: drawerIn 180ms ease-out;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 30%;
+    border-left: 2px solid var(--drawer-border);
+    background:
+        radial-gradient(circle at 28% 12%, rgba(var(--drawer-primary), 0.18), transparent 32%),
+        radial-gradient(circle at 90% 72%, rgba(var(--drawer-secondary), 0.12), transparent 36%),
+        linear-gradient(180deg, rgba(8, 12, 24, 0.98), rgba(3, 6, 12, 0.98));
+    box-shadow: -18px 0 36px rgba(0, 0, 0, 0.42), inset 0 0 18px rgba(var(--drawer-primary), 0.08);
+    box-sizing: border-box;
+    color: #dff;
+    overflow: hidden;
+    position: relative;
+    z-index: 40;
+}
+
+.drawer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(var(--drawer-primary), 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--drawer-secondary), 0.035) 1px, transparent 1px);
+    background-size: 34px 34px;
+    pointer-events: none;
+}
+
+.expandTheme {
+    --drawer-primary: 255, 241, 115;
+    --drawer-secondary: 0, 255, 255;
+    --drawer-border: #fff173;
+}
+
+.nodeInfoTheme {
+    --drawer-primary: 0, 255, 255;
+    --drawer-secondary: 74, 144, 255;
+    --drawer-border: #0ff;
+}
+
+.edgeInfoTheme {
+    --drawer-primary: 108, 255, 143;
+    --drawer-secondary: 0, 255, 255;
+    --drawer-border: #6cff8f;
+}
+
+@keyframes drawerIn {
+    from {
+        opacity: 0;
+        transform: translateX(28px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 920px) {
+    .drawer {
+        flex-basis: 360px;
+    }
+}
